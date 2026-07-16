@@ -1,0 +1,893 @@
+<!DOCTYPE html>
+
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fruit Mash Game</title>
+
+<style>
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    min-height: 100vh;
+    font-family: Arial, sans-serif;
+    background: linear-gradient(135deg, #ffecd2, #fcb69f);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 20px;
+}
+
+.game-container {
+    width: 100%;
+    max-width: 600px;
+    text-align: center;
+    background: white;
+    padding: 25px;
+    border-radius: 25px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+}
+
+h1 {
+    font-size: 42px;
+    color: #ff5722;
+    margin-bottom: 8px;
+}
+
+.subtitle {
+    color: #555;
+    margin-bottom: 20px;
+}
+
+.game-info {
+    display: flex;
+    justify-content: space-around;
+    margin-bottom: 20px;
+}
+
+.info-box {
+    background: #fff3e0;
+    padding: 10px 25px;
+    border-radius: 12px;
+}
+
+.info-box h3 {
+    color: #ff5722;
+    font-size: 16px;
+}
+
+.info-box p {
+    font-size: 25px;
+    font-weight: bold;
+}
+
+#game-board {
+    width: 100%;
+    max-width: 480px;
+    aspect-ratio: 1 / 1;
+    margin: auto;
+    display: grid;
+    grid-template-columns: repeat(8, 1fr);
+    gap: 5px;
+    background: #ff9800;
+    padding: 5px;
+    border-radius: 15px;
+}
+
+.fruit {
+    background: white;
+    border-radius: 10px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: clamp(25px, 6vw, 45px);
+    cursor: pointer;
+    user-select: none;
+    transition: transform 0.2s;
+}
+
+.fruit:hover {
+    transform: scale(1.1);
+}
+
+.selected {
+    transform: scale(1.15);
+    background: #ffeb3b;
+    box-shadow: 0 0 10px #ff9800;
+}
+
+.matched {
+    animation: disappear 0.4s ease;
+}
+
+@keyframes disappear {
+    from {
+        transform: scale(1);
+        opacity: 1;
+    }
+
+    to {
+        transform: scale(0);
+        opacity: 0;
+    }
+}
+
+button {
+    border: none;
+    padding: 13px 25px;
+    margin: 20px 5px 0;
+    border-radius: 25px;
+    font-size: 16px;
+    font-weight: bold;
+    cursor: pointer;
+    color: white;
+    background: #ff5722;
+}
+
+button:hover {
+    transform: scale(1.05);
+}
+
+#restart-btn {
+    background: #4caf50;
+}
+
+#message {
+    margin-top: 20px;
+    font-size: 22px;
+    font-weight: bold;
+    color: #ff5722;
+}
+
+@media (max-width: 500px) {
+    h1 {
+        font-size: 32px;
+    }
+
+    .info-box {
+        padding: 8px 12px;
+    }
+
+    #game-board {
+        gap: 3px;
+        padding: 3px;
+    }
+}
+</style>
+
+</head>
+
+<body>
+
+<div class="game-container">
+
+```
+<h1>🍓 Fruit Mash 🍉</h1>
+
+<p class="subtitle">
+    Match 3 or more fruits to score!
+</p>
+
+<div class="game-info">
+
+    <div class="info-box">
+        <h3>Score</h3>
+        <p id="score">0</p>
+    </div>
+
+    <div class="info-box">
+        <h3>Time</h3>
+        <p id="timer">60</p>
+    </div>
+
+    <div class="info-box">
+        <h3>Best</h3>
+        <p id="high-score">0</p>
+    </div>
+
+</div>
+
+<div id="game-board"></div>
+
+<button onclick="startGame()">Start Game</button>
+
+<button id="restart-btn" onclick="restartGame()">
+    Restart Game
+</button>
+
+<div id="message"></div>
+```
+
+</div>
+
+<script>
+
+const board = document.getElementById("game-board");
+
+const scoreDisplay = document.getElementById("score");
+
+const timerDisplay = document.getElementById("timer");
+
+const highScoreDisplay = document.getElementById("high-score");
+
+const message = document.getElementById("message");
+
+
+const BOARD_SIZE = 8;
+
+const TOTAL_CELLS = 64;
+
+
+const fruits = [
+    "🍎",
+    "🍌",
+    "🍇",
+    "🍊",
+    "🍓",
+    "🍉",
+    "🥝",
+    "🍍"
+];
+
+
+let gameBoard = [];
+
+let selectedFruit = null;
+
+let score = 0;
+
+let timeLeft = 60;
+
+let timer;
+
+let gameRunning = false;
+
+
+let highScore =
+    localStorage.getItem("fruitMashHighScore") || 0;
+
+highScoreDisplay.textContent = highScore;
+
+
+// RANDOM FRUIT
+
+function getRandomFruit() {
+
+    return fruits[
+        Math.floor(Math.random() * fruits.length)
+    ];
+
+}
+
+
+// CREATE BOARD
+
+function createBoard() {
+
+    board.innerHTML = "";
+
+    gameBoard = [];
+
+    selectedFruit = null;
+
+
+    for (let i = 0; i < TOTAL_CELLS; i++) {
+
+        gameBoard.push(getRandomFruit());
+
+    }
+
+
+    removeInitialMatches();
+
+
+    for (let i = 0; i < TOTAL_CELLS; i++) {
+
+        const fruit = document.createElement("div");
+
+        fruit.classList.add("fruit");
+
+        fruit.textContent = gameBoard[i];
+
+        fruit.dataset.index = i;
+
+        fruit.addEventListener(
+            "click",
+            handleFruitClick
+        );
+
+        board.appendChild(fruit);
+
+    }
+
+}
+
+
+// REMOVE INITIAL MATCHES
+
+function removeInitialMatches() {
+
+    for (let i = 0; i < TOTAL_CELLS; i++) {
+
+        const row = Math.floor(i / BOARD_SIZE);
+
+        const col = i % BOARD_SIZE;
+
+
+        if (
+            col >= 2 &&
+            gameBoard[i] === gameBoard[i - 1] &&
+            gameBoard[i] === gameBoard[i - 2]
+        ) {
+
+            gameBoard[i] = getRandomFruit();
+
+        }
+
+
+        if (
+            row >= 2 &&
+            gameBoard[i] === gameBoard[i - BOARD_SIZE] &&
+            gameBoard[i] === gameBoard[i - BOARD_SIZE * 2]
+        ) {
+
+            gameBoard[i] = getRandomFruit();
+
+        }
+
+    }
+
+}
+
+
+// CLICK FRUIT
+
+function handleFruitClick(event) {
+
+    if (!gameRunning) {
+
+        message.textContent =
+            "Press Start Game first!";
+
+        return;
+
+    }
+
+
+    const clickedIndex =
+        Number(event.target.dataset.index);
+
+
+    if (selectedFruit === null) {
+
+        selectedFruit = clickedIndex;
+
+        event.target.classList.add("selected");
+
+    }
+
+    else if (selectedFruit === clickedIndex) {
+
+        event.target.classList.remove("selected");
+
+        selectedFruit = null;
+
+    }
+
+    else {
+
+        const oldElement =
+            document.querySelector(
+                `[data-index="${selectedFruit}"]`
+            );
+
+
+        if (
+            areAdjacent(
+                selectedFruit,
+                clickedIndex
+            )
+        ) {
+
+            swapFruits(
+                selectedFruit,
+                clickedIndex
+            );
+
+
+            oldElement.classList.remove(
+                "selected"
+            );
+
+
+            selectedFruit = null;
+
+
+            setTimeout(
+                checkMatches,
+                300
+            );
+
+        }
+
+        else {
+
+            oldElement.classList.remove(
+                "selected"
+            );
+
+            selectedFruit = clickedIndex;
+
+            event.target.classList.add(
+                "selected"
+            );
+
+        }
+
+    }
+
+}
+
+
+// CHECK ADJACENT
+
+function areAdjacent(index1, index2) {
+
+    const row1 =
+        Math.floor(index1 / BOARD_SIZE);
+
+    const col1 =
+        index1 % BOARD_SIZE;
+
+
+    const row2 =
+        Math.floor(index2 / BOARD_SIZE);
+
+    const col2 =
+        index2 % BOARD_SIZE;
+
+
+    return Math.abs(row1 - row2) +
+           Math.abs(col1 - col2) === 1;
+
+}
+
+
+// SWAP FRUITS
+
+function swapFruits(index1, index2) {
+
+    const temp = gameBoard[index1];
+
+    gameBoard[index1] =
+        gameBoard[index2];
+
+    gameBoard[index2] =
+        temp;
+
+
+    renderBoard();
+
+}
+
+
+// UPDATE BOARD
+
+function renderBoard() {
+
+    const elements =
+        document.querySelectorAll(".fruit");
+
+
+    elements.forEach(
+        (element, index) => {
+
+            element.textContent =
+                gameBoard[index];
+
+        }
+    );
+
+}
+
+
+// FIND MATCHES
+
+function findMatches() {
+
+    const matches = new Set();
+
+
+    // HORIZONTAL
+
+    for (
+        let row = 0;
+        row < BOARD_SIZE;
+        row++
+    ) {
+
+        let count = 1;
+
+
+        for (
+            let col = 1;
+            col < BOARD_SIZE;
+            col++
+        ) {
+
+            const current =
+                row * BOARD_SIZE + col;
+
+            const previous =
+                current - 1;
+
+
+            if (
+                gameBoard[current] ===
+                gameBoard[previous]
+            ) {
+
+                count++;
+
+            }
+
+            else {
+
+                if (count >= 3) {
+
+                    for (
+                        let i = col - count;
+                        i < col;
+                        i++
+                    ) {
+
+                        matches.add(
+                            row * BOARD_SIZE + i
+                        );
+
+                    }
+
+                }
+
+                count = 1;
+
+            }
+
+        }
+
+
+        if (count >= 3) {
+
+            for (
+                let i = BOARD_SIZE - count;
+                i < BOARD_SIZE;
+                i++
+            ) {
+
+                matches.add(
+                    row * BOARD_SIZE + i
+                );
+
+            }
+
+        }
+
+    }
+
+
+    // VERTICAL
+
+    for (
+        let col = 0;
+        col < BOARD_SIZE;
+        col++
+    ) {
+
+        let count = 1;
+
+
+        for (
+            let row = 1;
+            row < BOARD_SIZE;
+            row++
+        ) {
+
+            const current =
+                row * BOARD_SIZE + col;
+
+            const previous =
+                current - BOARD_SIZE;
+
+
+            if (
+                gameBoard[current] ===
+                gameBoard[previous]
+            ) {
+
+                count++;
+
+            }
+
+            else {
+
+                if (count >= 3) {
+
+                    for (
+                        let i = row - count;
+                        i < row;
+                        i++
+                    ) {
+
+                        matches.add(
+                            i * BOARD_SIZE + col
+                        );
+
+                    }
+
+                }
+
+                count = 1;
+
+            }
+
+        }
+
+
+        if (count >= 3) {
+
+            for (
+                let i = BOARD_SIZE - count;
+                i < BOARD_SIZE;
+                i++
+            ) {
+
+                matches.add(
+                    i * BOARD_SIZE + col
+                );
+
+            }
+
+        }
+
+    }
+
+
+    return matches;
+
+}
+
+
+// CHECK MATCHES
+
+function checkMatches() {
+
+    const matches = findMatches();
+
+
+    if (matches.size === 0) {
+
+        return;
+
+    }
+
+
+    score += matches.size * 10;
+
+    scoreDisplay.textContent = score;
+
+
+    if (score > highScore) {
+
+        highScore = score;
+
+        highScoreDisplay.textContent =
+            highScore;
+
+
+        localStorage.setItem(
+            "fruitMashHighScore",
+            highScore
+        );
+
+    }
+
+
+    const elements =
+        document.querySelectorAll(".fruit");
+
+
+    matches.forEach(index => {
+
+        elements[index].classList.add(
+            "matched"
+        );
+
+    });
+
+
+    setTimeout(() => {
+
+        matches.forEach(index => {
+
+            gameBoard[index] = null;
+
+        });
+
+
+        dropFruits();
+
+        fillEmptySpaces();
+
+        renderBoard();
+
+
+        setTimeout(
+            checkMatches,
+            300
+        );
+
+
+    }, 400);
+
+}
+
+
+// DROP FRUITS
+
+function dropFruits() {
+
+    for (
+        let col = 0;
+        col < BOARD_SIZE;
+        col++
+    ) {
+
+        let emptySpaces = 0;
+
+
+        for (
+            let row = BOARD_SIZE - 1;
+            row >= 0;
+            row--
+        ) {
+
+            const index =
+                row * BOARD_SIZE + col;
+
+
+            if (
+                gameBoard[index] === null
+            ) {
+
+                emptySpaces++;
+
+            }
+
+            else if (emptySpaces > 0) {
+
+                const newIndex =
+                    (row + emptySpaces)
+                    * BOARD_SIZE + col;
+
+
+                gameBoard[newIndex] =
+                    gameBoard[index];
+
+
+                gameBoard[index] = null;
+
+            }
+
+        }
+
+    }
+
+}
+
+
+// FILL EMPTY SPACES
+
+function fillEmptySpaces() {
+
+    for (
+        let i = 0;
+        i < TOTAL_CELLS;
+        i++
+    ) {
+
+        if (gameBoard[i] === null) {
+
+            gameBoard[i] =
+                getRandomFruit();
+
+        }
+
+    }
+
+}
+
+
+// START GAME
+
+function startGame() {
+
+    score = 0;
+
+    timeLeft = 60;
+
+    gameRunning = true;
+
+
+    scoreDisplay.textContent = score;
+
+    timerDisplay.textContent = timeLeft;
+
+    message.textContent = "";
+
+
+    createBoard();
+
+
+    clearInterval(timer);
+
+
+    timer = setInterval(() => {
+
+        timeLeft--;
+
+
+        timerDisplay.textContent =
+            timeLeft;
+
+
+        if (timeLeft <= 0) {
+
+            endGame();
+
+        }
+
+    }, 1000);
+
+}
+
+
+// RESTART GAME
+
+function restartGame() {
+
+    clearInterval(timer);
+
+    startGame();
+
+}
+
+
+// END GAME
+
+function endGame() {
+
+    gameRunning = false;
+
+
+    clearInterval(timer);
+
+
+    message.textContent =
+        `🎉 Game Over! Your Score: ${score}`;
+
+}
+
+
+// CREATE INITIAL BOARD
+
+createBoard();
+
+</script>
+
+</body>
+</html>
